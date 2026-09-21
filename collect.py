@@ -196,6 +196,16 @@ def collect(root, client, email, password, room_override="", poll_id=None):
     poll_path.parent.mkdir(parents=True, exist_ok=True)
     with poll_path.open("a") as handle:
         handle.write(json.dumps(record, separators=(",", ":")) + "\n")
+    # A small public catalog lets the dashboard discover CSVs without GitHub API quotas.
+    catalog = {
+        "schema_version": 1,
+        "updated_at_utc": record["finished_at_utc"],
+        "last_poll_status": record["status"],
+        "observation_files": sorted(str(p.relative_to(root)) for p in (root / "observations").glob("*.csv")),
+    }
+    temporary = root / "index.json.tmp"
+    temporary.write_text(json.dumps(catalog, indent=2) + "\n")
+    temporary.replace(root / "index.json")
     return exit_code
 
 
