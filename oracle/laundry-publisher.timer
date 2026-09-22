@@ -1,8 +1,8 @@
 [Unit]
-Description=Publish collected WASH laundry observations every fifteen minutes
+Description=Publish collected WASH laundry observations every hour
 
 [Timer]
-OnCalendar=*-*-* *:0/15:30
+OnCalendar=*-*-* *:00:30
 AccuracySec=1s
 Persistent=true
 Unit=laundry-publisher.service

@@ -9,7 +9,7 @@ in root-managed files on the VM; cookies exist only in memory during each run.
 The repository's `main` branch contains code. Its separate `data` branch
 contains `data/observations/YYYY-MM-DD.csv`, `data/polls/YYYY-MM-DD.jsonl`, and
 `data/inventory.json`. Observations are appended locally every minute and
-published together every fifteen minutes in one Git commit.
+published together every hour in one Git commit.
 These are ordinary Git files, not temporary runner files, expiring artifacts, or
 caches. Clone/download the `data` branch to analyze or back up the history.
 Git history grows over time; this is a simple starting point, not an unlimited
@@ -26,7 +26,7 @@ subsequent changes fail visibly for review rather than silently altering the coh
 The production collector and publisher are separate locked systemd one-shot
 services. Collection runs every minute and records snapshots under
 `/var/lib/laundry-tracker/data` without contacting GitHub. Publication runs every
-fifteen minutes, copies a consistent local snapshot into a separate Git worktree,
+hour, copies a consistent local snapshot into a separate Git worktree,
 commits the pending observations together, reconciles with the `data` branch,
 and retries the push. A slow or failed GitHub push cannot block collection. Local
 files and Git commits retain observations during a temporary GitHub outage so a
