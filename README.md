@@ -77,6 +77,18 @@ at any time with `sudo /opt/laundry-tracker/status.sh`, or with
 `systemctl list-timers laundry-collector.timer laundry-publisher.timer` and
 `journalctl -u laundry-collector.service -u laundry-publisher.service`.
 
+## Live dashboard refresh
+
+The public dashboard checks the published GitHub data hourly. Its Refresh now
+button also reads observations collected since that publication from a read-only
+API on the VM. The API never logs into WASH or writes to GitHub; it only returns
+allowlisted recent rows already saved under `/var/lib/laundry-tracker/data`.
+It listens on localhost port 8766 and needs an HTTPS reverse proxy for browsers.
+The supplied Caddyfile uses the VM's `sslip.io` hostname. Open TCP ports 80 and
+443 in both Oracle's network security rules and the VM firewall, then install
+and start Caddy and `laundry-api.service`. The raw GitHub history remains the
+hourly public backup.
+
 Oracle documents that Always Free compute instances can be reclaimed when they
 remain idle. This collector is intentionally light, so the dashboard's stale-data
 indicator remains the practical health alert even after migration.

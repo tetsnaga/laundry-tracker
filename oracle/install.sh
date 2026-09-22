@@ -35,6 +35,7 @@ fi
 
 install -d -o root -g root -m 0755 "${APP_DIR}"
 install -o root -g root -m 0644 "${SOURCE_DIR}/collect.py" "${APP_DIR}/collect.py"
+install -o root -g root -m 0644 "${SOURCE_DIR}/serve.py" "${APP_DIR}/serve.py"
 install -o root -g root -m 0644 "${SOURCE_DIR}/wash_test.py" "${APP_DIR}/wash_test.py"
 install -o root -g root -m 0755 "${SOURCE_DIR}/oracle/collect-local.sh" "${APP_DIR}/collect-local.sh"
 install -o root -g root -m 0755 "${SOURCE_DIR}/oracle/publish.sh" "${APP_DIR}/publish.sh"
@@ -85,6 +86,7 @@ install -o root -g root -m 0644 "${SOURCE_DIR}/oracle/laundry-collector.service"
 install -o root -g root -m 0644 "${SOURCE_DIR}/oracle/laundry-collector.timer" /etc/systemd/system/laundry-collector.timer
 install -o root -g root -m 0644 "${SOURCE_DIR}/oracle/laundry-publisher.service" /etc/systemd/system/laundry-publisher.service
 install -o root -g root -m 0644 "${SOURCE_DIR}/oracle/laundry-publisher.timer" /etc/systemd/system/laundry-publisher.timer
+install -o root -g root -m 0644 "${SOURCE_DIR}/oracle/laundry-api.service" /etc/systemd/system/laundry-api.service
 systemctl daemon-reload
 
 echo
@@ -96,3 +98,4 @@ echo
 echo "After the proof collection appears on the data branch, enable the timer with:"
 echo "  sudo systemctl enable --now laundry-collector.timer"
 echo "  sudo systemctl enable --now laundry-publisher.timer"
+echo "  sudo systemctl enable --now laundry-api.service"

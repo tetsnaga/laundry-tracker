@@ -1,0 +1,20 @@
+[Unit]
+Description=Serve recent WASH laundry observations read-only
+After=network.target
+
+[Service]
+Type=simple
+User=laundry-collector
+Group=laundry-collector
+ExecStart=/usr/bin/python3 /opt/laundry-tracker/serve.py
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadOnlyPaths=/var/lib/laundry-tracker/data
+
+[Install]
+WantedBy=multi-user.target
