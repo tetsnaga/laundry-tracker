@@ -1,0 +1,20 @@
+[Unit]
+Description=Collect and publish one WASH laundry status snapshot
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=laundry-collector
+Group=laundry-collector
+ExecStart=/opt/laundry-tracker/collect-and-push.sh
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/laundry-tracker
+
+# A WASH request normally completes in seconds. Prevent a hung network request
+# or git operation from overlapping the next scheduled run indefinitely.
+TimeoutStartSec=240

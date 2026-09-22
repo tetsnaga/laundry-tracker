@@ -1,8 +1,8 @@
 # Laundry monitoring
 
-One WASH status snapshot every five minutes using GitHub Actions. No browser or
-third-party Python packages are required. Credentials are repository Actions
-secrets; cookies exist only in memory during each run.
+One WASH status snapshot every five minutes from an Oracle Cloud Always Free VM.
+No browser or third-party Python packages are required. WASH credentials remain
+in root-managed files on the VM; cookies exist only in memory during each run.
 
 ## Storage
 
@@ -20,9 +20,64 @@ not create fake machine observations or carry forward previous availability.
 The first successful poll pins the room and machine roster in `inventory.json`;
 subsequent changes fail visibly for review rather than silently altering the cohort.
 
-## Start on GitHub
+## Oracle Cloud deployment
 
-The workflow and an initialized `data` branch must be pushed to the repo.
+The production collector runs as a locked systemd one-shot service with a
+five-minute timer. Each run pulls the latest `data` branch, records the snapshot
+locally, commits it, and retries the push to GitHub. Local Git history preserves
+observations during a temporary GitHub outage so a later run can publish them.
+
+Create an Always Free-eligible Ubuntu or Oracle Linux compute instance in the
+tenancy's home region. A public IP is needed for initial SSH setup; the collector
+itself only needs outbound HTTPS and SSH. Use an Always Free-labelled shape and
+image, and confirm the estimated monthly cost is zero before creating it.
+
+Create a repository deploy key on a trusted computer and add its public half to
+`tetsnaga/laundry-tracker` with write access:
+
+```bash
+ssh-keygen -t ed25519 -f laundry-tracker-oracle -C oracle-laundry-collector -N ''
+gh api repos/tetsnaga/laundry-tracker/keys \
+  --method POST \
+  -f title='Oracle laundry collector' \
+  -f key="$(<laundry-tracker-oracle.pub)" \
+  -F read_only=false
+```
+
+Copy the repository and private deploy key to the VM, then install. The installer
+prompts for the WASH email and password without placing either in shell history:
+
+```bash
+scp -i OCI_LOGIN_KEY -r ./laundry-tracker ubuntu@PUBLIC_IP:/tmp/
+scp -i OCI_LOGIN_KEY laundry-tracker-oracle ubuntu@PUBLIC_IP:/tmp/
+ssh -i OCI_LOGIN_KEY ubuntu@PUBLIC_IP
+cd /tmp/laundry-tracker
+sudo ./oracle/install.sh /tmp/laundry-tracker-oracle
+sudo systemctl start laundry-collector.service
+sudo ./oracle/status.sh
+```
+
+Only after the proof run appears on the GitHub `data` branch, turn off the old
+GitHub scheduler and turn on the Oracle timer:
+
+```bash
+gh variable set COLLECTION_ENABLED --repo tetsnaga/laundry-tracker --body false
+sudo systemctl enable --now laundry-collector.timer
+```
+
+The timer survives reboots and catches up with one run after downtime. Inspect it
+at any time with `sudo /opt/laundry-tracker/status.sh`, or with
+`systemctl list-timers laundry-collector.timer` and
+`journalctl -u laundry-collector.service`.
+
+Oracle documents that Always Free compute instances can be reclaimed when they
+remain idle. This collector is intentionally light, so the dashboard's stale-data
+indicator remains the practical health alert even after migration.
+
+## Previous GitHub Actions deployment
+
+The workflow remains as a manual fallback. An initialized `data` branch must be
+pushed to the repo.
 Scheduling is disabled until repository variable `COLLECTION_ENABLED` is `true`.
 Manual runs work while scheduling is disabled.
 
