@@ -1,0 +1,11 @@
+[Unit]
+Description=Publish collected WASH laundry observations every fifteen minutes
+
+[Timer]
+OnCalendar=*-*-* *:0/15:30
+AccuracySec=1s
+Persistent=true
+Unit=laundry-publisher.service
+
+[Install]
+WantedBy=timers.target

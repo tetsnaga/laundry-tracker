@@ -1,6 +1,6 @@
 # Laundry monitoring
 
-One WASH status snapshot every five minutes from an Oracle Cloud Always Free VM.
+One WASH status snapshot every minute from an Oracle Cloud Always Free VM.
 No browser or third-party Python packages are required. WASH credentials remain
 in root-managed files on the VM; cookies exist only in memory during each run.
 
@@ -8,7 +8,8 @@ in root-managed files on the VM; cookies exist only in memory during each run.
 
 The repository's `main` branch contains code. Its separate `data` branch
 contains `data/observations/YYYY-MM-DD.csv`, `data/polls/YYYY-MM-DD.jsonl`, and
-`data/inventory.json`. Observations are appended and committed after every poll.
+`data/inventory.json`. Observations are appended locally every minute and
+published together every fifteen minutes in one Git commit.
 These are ordinary Git files, not temporary runner files, expiring artifacts, or
 caches. Clone/download the `data` branch to analyze or back up the history.
 Git history grows over time; this is a simple starting point, not an unlimited
@@ -22,10 +23,15 @@ subsequent changes fail visibly for review rather than silently altering the coh
 
 ## Oracle Cloud deployment
 
-The production collector runs as a locked systemd one-shot service with a
-five-minute timer. Each run pulls the latest `data` branch, records the snapshot
-locally, commits it, and retries the push to GitHub. Local Git history preserves
-observations during a temporary GitHub outage so a later run can publish them.
+The production collector and publisher are separate locked systemd one-shot
+services. Collection runs every minute and records snapshots under
+`/var/lib/laundry-tracker/data` without contacting GitHub. Publication runs every
+fifteen minutes, copies a consistent local snapshot into a separate Git worktree,
+commits the pending observations together, reconciles with the `data` branch,
+and retries the push. A slow or failed GitHub push cannot block collection. Local
+files and Git commits retain observations during a temporary GitHub outage so a
+later publication can catch up. The dashboard can lag the latest local
+observation by roughly one publication interval.
 
 Create an Always Free-eligible Ubuntu or Oracle Linux compute instance in the
 tenancy's home region. A public IP is needed for initial SSH setup; the collector
@@ -54,6 +60,7 @@ ssh -i OCI_LOGIN_KEY ubuntu@PUBLIC_IP
 cd /tmp/laundry-tracker
 sudo ./oracle/install.sh /tmp/laundry-tracker-oracle
 sudo systemctl start laundry-collector.service
+sudo systemctl start laundry-publisher.service
 sudo ./oracle/status.sh
 ```
 
@@ -62,12 +69,13 @@ timer. The repository's GitHub workflow is manual-only after the cutover:
 
 ```bash
 sudo systemctl enable --now laundry-collector.timer
+sudo systemctl enable --now laundry-publisher.timer
 ```
 
 The timer survives reboots and catches up with one run after downtime. Inspect it
 at any time with `sudo /opt/laundry-tracker/status.sh`, or with
-`systemctl list-timers laundry-collector.timer` and
-`journalctl -u laundry-collector.service`.
+`systemctl list-timers laundry-collector.timer laundry-publisher.timer` and
+`journalctl -u laundry-collector.service -u laundry-publisher.service`.
 
 Oracle documents that Always Free compute instances can be reclaimed when they
 remain idle. This collector is intentionally light, so the dashboard's stale-data
@@ -113,7 +121,7 @@ are stored. Source JSON is allowlisted into these fields rather than saved whole
 
 For countdown accuracy, use raw running-to-finished transitions, not an automatic
 "Available" fallback as proof of finishing. A transition is only bracketed between
-the last running observation and the first finished observation. Five-minute polls
+the last running observation and the first finished observation. One-minute polls
 give at least that sampling uncertainty, and delays/missing polls widen it. A direct
 running-to-available transition may hide a missed finished state. Added dryer time,
 pauses, and a new cycle must be treated separately. This dataset measures when WASH

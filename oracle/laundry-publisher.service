@@ -1,5 +1,5 @@
 [Unit]
-Description=Collect one WASH laundry status snapshot locally
+Description=Publish collected WASH laundry observations to GitHub
 Wants=network-online.target
 After=network-online.target
 
@@ -7,14 +7,11 @@ After=network-online.target
 Type=oneshot
 User=laundry-collector
 Group=laundry-collector
-ExecStart=/opt/laundry-tracker/collect-local.sh
+ExecStart=/opt/laundry-tracker/publish.sh
 UMask=0077
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectHome=true
 ProtectSystem=strict
 ReadWritePaths=/var/lib/laundry-tracker
-
-# A WASH request normally completes in seconds; a stuck run cannot prevent all
-# later minute ticks from being collected.
-TimeoutStartSec=55
+TimeoutStartSec=240
