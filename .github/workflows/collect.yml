@@ -2,10 +2,6 @@ name: Collect laundry status
 
 on:
   workflow_dispatch:
-  schedule:
-    # Explicit values avoid scheduler ambiguity around a ranged step expression.
-    # Spread away from the top of the hour, when Actions schedules are busiest.
-    - cron: '3,8,13,18,23,28,33,38,43,48,53,58 * * * *'
 
 permissions:
   contents: write
@@ -16,7 +12,6 @@ concurrency:
 
 jobs:
   collect:
-    if: github.event_name == 'workflow_dispatch' || vars.COLLECTION_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:

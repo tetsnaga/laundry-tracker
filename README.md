@@ -57,11 +57,10 @@ sudo systemctl start laundry-collector.service
 sudo ./oracle/status.sh
 ```
 
-Only after the proof run appears on the GitHub `data` branch, turn off the old
-GitHub scheduler and turn on the Oracle timer:
+Only after the proof run appears on the GitHub `data` branch, turn on the Oracle
+timer. The repository's GitHub workflow is manual-only after the cutover:
 
 ```bash
-gh variable set COLLECTION_ENABLED --repo tetsnaga/laundry-tracker --body false
 sudo systemctl enable --now laundry-collector.timer
 ```
 
@@ -74,12 +73,11 @@ Oracle documents that Always Free compute instances can be reclaimed when they
 remain idle. This collector is intentionally light, so the dashboard's stale-data
 indicator remains the practical health alert even after migration.
 
-## Previous GitHub Actions deployment
+## Manual GitHub Actions fallback
 
-The workflow remains as a manual fallback. An initialized `data` branch must be
-pushed to the repo.
-Scheduling is disabled until repository variable `COLLECTION_ENABLED` is `true`.
-Manual runs work while scheduling is disabled.
+The workflow remains available through `workflow_dispatch` for a manual fallback.
+It has no scheduled trigger; Oracle is the only scheduled collector. An initialized
+`data` branch must already exist in the repository.
 
 Run these commands in your own terminal, replacing OWNER/REPO. Each secret command
 prompts for its value; do not put a password directly in the command line.
@@ -91,27 +89,10 @@ gh workflow run collect.yml --repo OWNER/REPO
 gh run list --repo OWNER/REPO --workflow collect.yml --limit 3
 ```
 
-Check that the manual run succeeds AND that the data branch contains the new CSV
-and poll log. Then enable the schedule:
-
-```bash
-gh variable set COLLECTION_ENABLED --repo OWNER/REPO --body true
-```
-
-Pause with the same command and `--body false`. Rotating a password only requires
-re-running `gh secret set WASH_PASSWORD`. Optionally set `WASH_ROOM_ID` as a repo
+Check that a manual run succeeds and that the data branch contains the new CSV
+and poll log. Rotating the fallback password only requires re-running
+`gh secret set WASH_PASSWORD`. Optionally set `WASH_ROOM_ID` as a repository
 variable to select a specific room already available in the account.
-
-GitHub schedules can be late or dropped. This schedule uses minutes 2, 7, 12, ...,
-57 to avoid the top of the hour. Five minutes is the minimum scheduled interval.
-At that interval there are 8,640 scheduled runs per 30 days, before missed runs.
-Standard GitHub-hosted runners are free in public repositories. Public repositories
-also make the collected machine IDs and usage history public; credentials remain
-separate Actions secrets. Private-repository runner use draws on the account's
-included minutes; check your Actions budget before enabling. This setup does not
-change billing or spending limits. If a quota/budget stops execution, no observations
-can be collected. Public-repository schedules can be disabled after 60 days without
-repository activity. Watch for missing observations even when there is no failed run.
 
 ## Recorded fields and countdown analysis
 
