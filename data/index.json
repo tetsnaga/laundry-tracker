@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at_utc": "2026-09-22T19:20:02.685+00:00",
+  "updated_at_utc": "2026-09-22T19:25:03.062+00:00",
   "last_poll_status": "ok",
   "observation_files": [
     "observations/2026-09-21.csv",
