@@ -1,10 +1,14 @@
 import csv
 from datetime import datetime, timedelta, timezone
-from http.server import HTTPServer
+from http.server import ThreadingHTTPServer
+import json
 from pathlib import Path
+import subprocess
 import tempfile
 from threading import Thread
+import time
 import unittest
+from unittest import mock
 import urllib.error
 import urllib.request
 
@@ -42,18 +46,60 @@ class RecentRowsTests(unittest.TestCase):
     def test_http_endpoint_exposes_only_observations_with_cors(self):
         with tempfile.TemporaryDirectory() as directory:
             Handler.data_dir = Path(directory)
-            server = HTTPServer(("127.0.0.1", 0), Handler)
+            server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
             worker = Thread(target=server.serve_forever, daemon=True)
             worker.start()
             try:
                 base = f"http://127.0.0.1:{server.server_port}"
                 with urllib.request.urlopen(f"{base}/observations?after=0") as response:
-                    self.assertEqual(response.headers["Access-Control-Allow-Origin"], "*")
+                    self.assertEqual(response.headers["Access-Control-Allow-Origin"], "https://tets.ai")
                     self.assertEqual(response.headers["Cache-Control"], "no-store")
                     self.assertEqual(response.status, 200)
                 with self.assertRaises(urllib.error.HTTPError) as error:
                     urllib.request.urlopen(f"{base}/inventory.json")
                 self.assertEqual(error.exception.code, 404)
+            finally:
+                server.shutdown()
+                worker.join()
+                server.server_close()
+
+    def test_refresh_polls_once_then_reuses_recent_check(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "observations"
+            root.mkdir()
+            Handler.data_dir = Path(directory)
+            Handler.last_refresh_started = time.monotonic() - 60
+            server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+            worker = Thread(target=server.serve_forever, daemon=True)
+            worker.start()
+            calls = []
+
+            def collect(*args, **kwargs):
+                calls.append(1)
+                with (root / f"{datetime.now(timezone.utc).date()}.csv").open("w", newline="") as handle:
+                    writer = csv.DictWriter(handle, fieldnames=["observed_at_utc", "machine_id"])
+                    writer.writeheader()
+                    writer.writerow({"observed_at_utc": datetime.now(timezone.utc).isoformat(),
+                                     "machine_id": "123"})
+                return subprocess.CompletedProcess(args[0], 0)
+
+            try:
+                url = f"http://127.0.0.1:{server.server_port}/refresh?after=0"
+                with mock.patch("serve.subprocess.run", side_effect=collect):
+                    for expected in (True, False):
+                        request = urllib.request.Request(url, data=b"", method="POST",
+                                                         headers={"Origin": "https://tets.ai"})
+                        with urllib.request.urlopen(request) as response:
+                            body = json.load(response)
+                            self.assertEqual(body["fresh_poll"], expected)
+                            self.assertEqual(body["rows"][0]["machine_id"], "123")
+                    self.assertEqual(len(calls), 1)
+                    bad = urllib.request.Request(url, data=b"", method="POST",
+                                                 headers={"Origin": "https://other.example"})
+                    with self.assertRaises(urllib.error.HTTPError) as error:
+                        urllib.request.urlopen(bad)
+                    self.assertEqual(error.exception.code, 403)
+                    self.assertEqual(len(calls), 1)
             finally:
                 server.shutdown()
                 worker.join()

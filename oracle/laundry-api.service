@@ -1,5 +1,5 @@
 [Unit]
-Description=Serve recent WASH laundry observations read-only
+Description=Serve recent WASH observations and on-demand refreshes
 After=network.target
 
 [Service]
@@ -14,7 +14,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectHome=true
 ProtectSystem=strict
-ReadOnlyPaths=/var/lib/laundry-tracker/data
+ReadWritePaths=/var/lib/laundry-tracker
 
 [Install]
 WantedBy=multi-user.target

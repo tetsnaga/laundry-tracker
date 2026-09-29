@@ -80,9 +80,10 @@ at any time with `sudo /opt/laundry-tracker/status.sh`, or with
 ## Live dashboard refresh
 
 The public dashboard checks the published GitHub data hourly. Its Refresh now
-button also reads observations collected since that publication from a read-only
-API on the VM. The API never logs into WASH or writes to GitHub; it only returns
-allowlisted recent rows already saved under `/var/lib/laundry-tracker/data`.
+button asks the VM API to run a fresh WASH check and return newer observations.
+The API saves each new check under `/var/lib/laundry-tracker/data` but never
+writes to GitHub. Repeated public requests within 30 seconds reuse the latest
+check to limit load on WASH. The API also supports read-only recent observations.
 It listens on localhost port 8766 and needs an HTTPS reverse proxy for browsers.
 The supplied Caddyfile uses the VM's `sslip.io` hostname. Open TCP ports 80 and
 443 in both Oracle's network security rules and the VM firewall, then install
