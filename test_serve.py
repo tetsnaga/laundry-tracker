@@ -100,6 +100,11 @@ class RecentRowsTests(unittest.TestCase):
                         urllib.request.urlopen(bad)
                     self.assertEqual(error.exception.code, 403)
                     self.assertEqual(len(calls), 1)
+                    preflight = urllib.request.Request(url, method="OPTIONS",
+                                                       headers={"Origin": "https://tets.ai"})
+                    with urllib.request.urlopen(preflight) as response:
+                        self.assertEqual(response.status, 204)
+                        self.assertIn("POST", response.headers["Access-Control-Allow-Methods"])
             finally:
                 server.shutdown()
                 worker.join()
