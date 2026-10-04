@@ -103,6 +103,22 @@ class CollectorTests(unittest.TestCase):
             with next(Path(tmp).rglob("*.csv")).open() as handle:
                 self.assertEqual(len(list(csv.DictReader(handle))), 1)
 
+    def test_complete_labeled_replacement_versions_inventory_and_keeps_history(self):
+        with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
+            first = payload()
+            first["washers"][0]["LabelID"] = 1
+            second = payload()
+            second["washers"][0].update(SerialNumber="456", LabelID=1)
+            self.assertEqual(collect(tmp, FakeClient(first), "e", "p"), 0)
+            self.assertEqual(collect(tmp, FakeClient(second), "e", "p"), 0)
+            inventory = json.loads((Path(tmp) / "inventory.json").read_text())
+            self.assertEqual(inventory["machines"], [["washers", "456"]])
+            self.assertEqual(inventory["labels"], {"456": "Washer 1"})
+            self.assertEqual(len(inventory["versions"]), 2)
+            self.assertEqual(inventory["versions"][0]["machines"], [["washers", "123"]])
+            with next((Path(tmp) / "observations").glob("*.csv")).open() as handle:
+                self.assertEqual({r["machine_id"] for r in csv.DictReader(handle)}, {"123", "456"})
+
 
 if __name__ == "__main__":
     unittest.main()

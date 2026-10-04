@@ -1,5 +1,6 @@
 """Collect one WASH snapshot into daily CSV files; Python standard library only."""
 import argparse
+from collections import Counter
 import csv
 import http.cookiejar
 import json
@@ -140,13 +141,42 @@ def normalize(result, room, poll_id, started, observed):
     return rows
 
 
-def validate_inventory(rows, root, room):
-    """Pin the room and inventory; fail visibly instead of silently losing machines."""
+def validate_inventory(rows, result, root, room, observed):
+    """Pin the room, and version only complete machine-roster replacements."""
+    labels = {}
+    label_numbers = set()
+    for kind in ("washers", "dryers"):
+        group = result[kind]
+        for machine in group.values() if isinstance(group, dict) else group:
+            label = machine.get("LabelID")
+            if isinstance(label, int) and not isinstance(label, bool) and 0 < label <= 999:
+                label_numbers.add(label)
+                labels[scalar(machine["SerialNumber"])] = (
+                    f"{'Washer' if kind == 'washers' else 'Dryer'} {label}")
     inventory = {"room_id": room, "machines": sorted(
-        [[r["machine_type"], r["machine_id"]] for r in rows])}
+        [[r["machine_type"], r["machine_id"]] for r in rows]), "labels": labels}
     path = root / "inventory.json"
-    if path.exists() and json.loads(path.read_text()) != inventory:
-        raise CollectionError("room_or_machine_inventory_changed")
+    if path.exists():
+        previous = json.loads(path.read_text())
+        if previous["room_id"] != room:
+            raise CollectionError("room_or_machine_inventory_changed")
+        if previous["machines"] != inventory["machines"]:
+            old_counts = Counter(kind for kind, _ in previous["machines"])
+            new_counts = Counter(kind for kind, _ in inventory["machines"])
+            if (old_counts != new_counts or len(labels) != len(rows)
+                    or label_numbers != set(range(1, len(rows) + 1))):
+                raise CollectionError("room_or_machine_inventory_changed")
+            versions = previous.get("versions") or [{
+                "from_utc": None, "machines": previous["machines"],
+                "labels": previous.get("labels", {}),
+            }]
+            versions.append({"from_utc": observed, "machines": inventory["machines"],
+                             "labels": labels})
+            inventory["versions"] = versions
+        else:
+            inventory["labels"] = labels or previous.get("labels", {})
+            if "versions" in previous:
+                inventory["versions"] = previous["versions"]
     return path, inventory
 
 
@@ -177,10 +207,12 @@ def collect(root, client, email, password, room_override="", poll_id=None):
         room = client.login(email, password, room_override)
         result, requested, observed = client.snapshot(room)
         rows = normalize(result, room, poll_id, requested, observed)
-        inventory_path, inventory = validate_inventory(rows, root, room)
+        inventory_path, inventory = validate_inventory(rows, result, root, room, observed)
         append_csv(root / "observations" / f"{observed[:10]}.csv", rows)
-        if not inventory_path.exists():
-            inventory_path.write_text(json.dumps(inventory, indent=2) + "\n")
+        if not inventory_path.exists() or json.loads(inventory_path.read_text()) != inventory:
+            temporary_inventory = inventory_path.with_suffix(".json.tmp")
+            temporary_inventory.write_text(json.dumps(inventory, indent=2) + "\n")
+            temporary_inventory.replace(inventory_path)
         record.update(status="ok", machine_count=len(rows), observed_at_utc=observed)
         exit_code = 0
         print(f"Saved {len(rows)} machine observations at {observed}.")
