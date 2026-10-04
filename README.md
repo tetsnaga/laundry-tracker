@@ -18,8 +18,15 @@ database. Never force-push/reset the data branch while collecting.
 Each attempted poll has a success/failure log. A skipped/dropped GitHub run has
 no poll log and must be detected as a gap between timestamps. Failed fetches do
 not create fake machine observations or carry forward previous availability.
-The first successful poll pins the room and machine roster in `inventory.json`;
-subsequent changes fail visibly for review rather than silently altering the cohort.
+The first successful poll pins the room in `inventory.json`. A complete machine
+roster replacement with the same washer/dryer counts and unique numbered labels
+starts a new inventory version. Old and new machine IDs remain separate in the
+history; partial or ambiguous roster changes fail visibly for review.
+
+WASH replaced all 26 machine IDs after the September 30, 2026 18:49 UTC poll.
+The old collector rejected the new roster until October 4, 2026 19:44 UTC.
+That interval has no per-minute observations and cannot be reconstructed from
+the current WASH status page. The dashboard excludes the gap from its charts.
 
 ## Oracle Cloud deployment
 
