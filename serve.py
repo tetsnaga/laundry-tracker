@@ -46,6 +46,15 @@ def recent_rows(data_dir, after_ms, now=None):
             "observed_through_utc": latest.isoformat() if latest else None}
 
 
+def current_inventory(data_dir):
+    path = Path(data_dir) / "inventory.json"
+    if not path.exists():
+        return None
+    inventory = json.loads(path.read_text())
+    return {key: inventory[key] for key in ("machines", "labels", "versions")
+            if key in inventory}
+
+
 class Handler(BaseHTTPRequestHandler):
     data_dir = Path("/var/lib/laundry-tracker/data")
     collector_command = ("/opt/laundry-tracker/collect-local.sh",)
@@ -68,6 +77,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             result = recent_rows(self.data_dir, self.parse_after())
+            result["inventory"] = current_inventory(self.data_dir)
         except (OverflowError, ValueError):
             self.send_json(400, {"error": "invalid_after"})
             return
@@ -106,6 +116,7 @@ class Handler(BaseHTTPRequestHandler):
                     return
             result = recent_rows(self.data_dir, after_ms)
             result["fresh_poll"] = fresh_poll
+            result["inventory"] = current_inventory(self.data_dir)
             self.send_json(200, result)
         finally:
             self.refresh_lock.release()

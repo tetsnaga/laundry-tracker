@@ -67,6 +67,10 @@ class RecentRowsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "observations"
             root.mkdir()
+            (Path(directory) / "inventory.json").write_text(json.dumps({
+                "room_id": "private-room", "machines": [["washers", "123"]],
+                "labels": {"123": "Washer 1"}, "versions": [],
+            }))
             Handler.data_dir = Path(directory)
             Handler.last_refresh_started = time.monotonic() - 60
             server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
@@ -93,6 +97,8 @@ class RecentRowsTests(unittest.TestCase):
                             body = json.load(response)
                             self.assertEqual(body["fresh_poll"], expected)
                             self.assertEqual(body["rows"][0]["machine_id"], "123")
+                            self.assertEqual(body["inventory"]["labels"], {"123": "Washer 1"})
+                            self.assertNotIn("room_id", body["inventory"])
                     self.assertEqual(len(calls), 1)
                     bad = urllib.request.Request(url, data=b"", method="POST",
                                                  headers={"Origin": "https://other.example"})
