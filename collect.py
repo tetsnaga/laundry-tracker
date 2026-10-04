@@ -149,6 +149,8 @@ def validate_inventory(rows, result, root, room, observed):
         group = result[kind]
         for machine in group.values() if isinstance(group, dict) else group:
             label = machine.get("LabelID")
+            if isinstance(label, str) and label.isascii() and label.isdecimal():
+                label = int(label)
             if isinstance(label, int) and not isinstance(label, bool) and 0 < label <= 999:
                 label_numbers.add(label)
                 labels[scalar(machine["SerialNumber"])] = (

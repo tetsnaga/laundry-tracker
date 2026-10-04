@@ -106,9 +106,9 @@ class CollectorTests(unittest.TestCase):
     def test_complete_labeled_replacement_versions_inventory_and_keeps_history(self):
         with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
             first = payload()
-            first["washers"][0]["LabelID"] = 1
+            first["washers"][0]["LabelID"] = "1"
             second = payload()
-            second["washers"][0].update(SerialNumber="456", LabelID=1)
+            second["washers"][0].update(SerialNumber="456", LabelID="1")
             self.assertEqual(collect(tmp, FakeClient(first), "e", "p"), 0)
             self.assertEqual(collect(tmp, FakeClient(second), "e", "p"), 0)
             inventory = json.loads((Path(tmp) / "inventory.json").read_text())
