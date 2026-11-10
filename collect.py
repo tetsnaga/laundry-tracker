@@ -163,6 +163,13 @@ def validate_inventory(rows, result, root, room, observed):
         if previous["room_id"] != room:
             raise CollectionError("room_or_machine_inventory_changed")
         if previous["machines"] != inventory["machines"]:
+            # WASH sometimes omits machines from a status response. Preserve
+            # observations for the machines it did report, while keeping the
+            # pinned inventory so omitted machines remain unknown in charts.
+            previous_keys = {tuple(machine) for machine in previous["machines"]}
+            current_keys = {tuple(machine) for machine in inventory["machines"]}
+            if current_keys < previous_keys:
+                return path, previous
             old_counts = Counter(kind for kind, _ in previous["machines"])
             new_counts = Counter(kind for kind, _ in inventory["machines"])
             if (old_counts != new_counts or len(labels) != len(rows)

@@ -21,7 +21,10 @@ not create fake machine observations or carry forward previous availability.
 The first successful poll pins the room in `inventory.json`. A complete machine
 roster replacement with the same washer/dryer counts and unique numbered labels
 starts a new inventory version. Old and new machine IDs remain separate in the
-history; partial or ambiguous roster changes fail visibly for review.
+history. If WASH temporarily omits known machines, the collector saves only the
+machines it actually saw and keeps the pinned inventory; missing machines appear
+as unknown. Responses containing unexpected machines without a valid complete
+replacement still fail visibly for review.
 
 WASH replaced all 26 machine IDs after the September 30, 2026 18:49 UTC poll.
 The old collector rejected the new roster until October 4, 2026 19:44 UTC.

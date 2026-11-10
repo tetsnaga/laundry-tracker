@@ -103,6 +103,24 @@ class CollectorTests(unittest.TestCase):
             with next(Path(tmp).rglob("*.csv")).open() as handle:
                 self.assertEqual(len(list(csv.DictReader(handle))), 1)
 
+    def test_missing_known_machine_keeps_partial_observations_and_inventory(self):
+        with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
+            complete = payload()
+            complete["washers"].append({
+                "SerialNumber": "456", "LMCStatus": "72000000",
+                "RemainingMin": "", "SeverTime": STAMP,
+            })
+            partial = payload()
+            self.assertEqual(collect(tmp, FakeClient(complete), "e", "p"), 0)
+            original = (Path(tmp) / "inventory.json").read_text()
+            self.assertEqual(collect(tmp, FakeClient(partial), "e", "p"), 0)
+            self.assertEqual((Path(tmp) / "inventory.json").read_text(), original)
+            with next((Path(tmp) / "observations").glob("*.csv")).open() as handle:
+                rows = list(csv.DictReader(handle))
+            self.assertEqual([r["machine_id"] for r in rows], ["123", "456", "123"])
+            polls = [json.loads(line) for line in next((Path(tmp) / "polls").glob("*.jsonl")).read_text().splitlines()]
+            self.assertEqual(polls[-1]["machine_count"], 1)
+
     def test_complete_labeled_replacement_versions_inventory_and_keeps_history(self):
         with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
             first = payload()
