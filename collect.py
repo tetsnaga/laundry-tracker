@@ -161,7 +161,7 @@ def validate_inventory(rows, result, root, room, observed):
     if path.exists():
         previous = json.loads(path.read_text())
         if previous["room_id"] != room:
-            raise CollectionError("room_or_machine_inventory_changed")
+            raise CollectionError("pinned_room_changed")
         if previous["machines"] != inventory["machines"]:
             # WASH sometimes omits machines from a status response. Preserve
             # observations for the machines it did report, while keeping the
@@ -172,9 +172,10 @@ def validate_inventory(rows, result, root, room, observed):
                 return path, previous
             old_counts = Counter(kind for kind, _ in previous["machines"])
             new_counts = Counter(kind for kind, _ in inventory["machines"])
-            if (old_counts != new_counts or len(labels) != len(rows)
-                    or label_numbers != set(range(1, len(rows) + 1))):
-                raise CollectionError("room_or_machine_inventory_changed")
+            if old_counts != new_counts:
+                raise CollectionError("machine_roster_count_changed")
+            if len(labels) != len(rows) or label_numbers != set(range(1, len(rows) + 1)):
+                raise CollectionError("machine_roster_labels_invalid")
             versions = previous.get("versions") or [{
                 "from_utc": None, "machines": previous["machines"],
                 "labels": previous.get("labels", {}),
@@ -213,9 +214,11 @@ def collect(root, client, email, password, room_override="", poll_id=None):
     start = time.monotonic()
     exit_code = 1
     try:
-        room = client.login(email, password, room_override)
+        pinned_room = json.loads((root / "inventory.json").read_text())["room_id"] if (root / "inventory.json").exists() else ""
+        room = client.login(email, password, room_override or pinned_room)
         result, requested, observed = client.snapshot(room)
         rows = normalize(result, room, poll_id, requested, observed)
+        record["observed_machine_count"] = len(rows)
         inventory_path, inventory = validate_inventory(rows, result, root, room, observed)
         append_csv(root / "observations" / f"{observed[:10]}.csv", rows)
         if not inventory_path.exists() or json.loads(inventory_path.read_text()) != inventory:

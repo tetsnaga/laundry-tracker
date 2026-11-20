@@ -18,7 +18,9 @@ database. Never force-push/reset the data branch while collecting.
 Each attempted poll has a success/failure log. A skipped/dropped GitHub run has
 no poll log and must be detected as a gap between timestamps. Failed fetches do
 not create fake machine observations or carry forward previous availability.
-The first successful poll pins the room in `inventory.json`. A complete machine
+The first successful poll pins the room in `inventory.json`; later logins
+explicitly select that room even if WASH changes the account's default selection.
+A complete machine
 roster replacement with the same washer/dryer counts and unique numbered labels
 starts a new inventory version. Old and new machine IDs remain separate in the
 history. If WASH temporarily omits known machines, the collector saves only the

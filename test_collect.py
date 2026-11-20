@@ -102,6 +102,26 @@ class CollectorTests(unittest.TestCase):
             self.assertEqual(collect(tmp, FakeClient(changed), "e", "p"), 1)
             with next(Path(tmp).rglob("*.csv")).open() as handle:
                 self.assertEqual(len(list(csv.DictReader(handle))), 1)
+            polls = [json.loads(line) for line in next((Path(tmp) / "polls").glob("*.jsonl")).read_text().splitlines()]
+            self.assertEqual(polls[-1]["error_code"], "machine_roster_labels_invalid")
+            self.assertEqual(polls[-1]["observed_machine_count"], 1)
+
+    def test_pinned_room_is_used_when_default_selection_changes(self):
+        class SwitchingClient(FakeClient):
+            def __init__(self, default_room):
+                super().__init__()
+                self.default_room = default_room
+                self.requested_room = None
+
+            def login(self, email, password, room_override):
+                self.requested_room = room_override
+                return room_override or self.default_room
+
+        with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(collect(tmp, SwitchingClient("test-room"), "e", "p"), 0)
+            changed_default = SwitchingClient("other-room")
+            self.assertEqual(collect(tmp, changed_default, "e", "p"), 0)
+            self.assertEqual(changed_default.requested_room, "test-room")
 
     def test_missing_known_machine_keeps_partial_observations_and_inventory(self):
         with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
